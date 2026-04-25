@@ -1,0 +1,23 @@
+campaign_id,campaign_name,channel,objective,campaign_type,daily_budget,spend_so_far,impressions,clicks,ctr,cpc,roas,target_roas,frequency,bid_strategy,start_date,status
+NB001,Sell Your Car — Meta Delhi NCR,Meta,Lead Generation,Seller Acquisition,15000,11200,820000,4920,0.60,18.50,1.20,2.00,4.8,Lowest Cost,2025-03-01,Active
+NB002,Sell Your Car — Meta Mumbai,Meta,Lead Generation,Seller Acquisition,12000,9800,710000,3906,0.55,21.30,1.05,2.00,5.2,Lowest Cost,2025-03-01,Active
+NB003,Sell Your Car — Meta Bengaluru,Meta,Lead Generation,Seller Acquisition,10000,7600,580000,2958,0.51,19.80,1.35,2.00,3.9,Lowest Cost,2025-03-05,Active
+NB004,Sell Car — Google Search Branded,Google,Lead Generation,Seller Acquisition,8000,7750,95000,5130,5.40,14.20,1.80,2.00,1.1,Target CPA,2025-02-20,Active
+NB005,Sell Car — Google Search Generic,Google,Lead Generation,Seller Acquisition,10000,9600,140000,6020,4.30,15.90,1.55,2.00,1.2,Target CPA,2025-02-20,Active
+NB006,Seller Retargeting — Meta,Meta,Lead Generation,Seller Acquisition,5000,1900,135000,1485,1.10,12.80,0.85,2.00,6.9,Target CPA,2025-03-10,Active
+NB007,Seller Lookalike — Meta Tier 2,Meta,Lead Generation,Seller Acquisition,6000,4200,390000,1950,0.50,21.50,0.95,2.00,3.1,Lowest Cost,2025-03-08,Active
+NB008,Buy Used Cars — Google Search,Google,Conversions,Buyer Intent,22000,21500,195000,7800,4.00,19.20,3.60,3.50,1.1,Target ROAS,2025-02-15,Active
+NB009,Buy Used Cars — Meta Interest,Meta,Conversions,Buyer Intent,14000,10800,640000,5760,0.90,16.40,2.90,3.50,3.4,Lowest Cost,2025-02-18,Active
+NB010,Buy Car — Google Display,Google,Conversions,Buyer Intent,8000,7200,1200000,3600,0.30,18.00,1.80,3.50,2.3,Target CPA,2025-03-01,Active
+NB011,Buy Used Cars — YouTube TrueView,YouTube,Awareness,Buyer Intent,10000,9400,1850000,9250,0.50,8.20,2.10,3.50,2.8,CPM,2025-02-28,Active
+NB012,Certified Cars — Meta Lookalike,Meta,Conversions,Buyer Intent,9000,6300,420000,2940,0.70,17.30,2.40,3.50,2.6,Lowest Cost,2025-03-04,Active
+NB013,Premium Cars — Google Search,Google,Conversions,Buyer Intent,12000,11600,88000,4400,5.00,22.40,3.10,3.50,1.0,Target ROAS,2025-02-22,Active
+NB014,First Car Buyers — Meta,Meta,Lead Generation,Buyer Intent,7000,5100,310000,1860,0.60,19.80,2.20,3.50,3.7,Lowest Cost,2025-03-06,Active
+NB015,Car Loan EMI — Meta Retargeting,Meta,Conversions,Financing & EMI,8000,3100,120000,2400,2.00,22.40,2.10,4.00,6.8,Target CPA,2025-03-10,Active
+NB016,Zero Downpayment — Google Search,Google,Conversions,Financing & EMI,10000,9500,105000,5460,5.20,17.40,3.40,4.00,1.1,Target ROAS,2025-02-25,Active
+NB017,EMI Calculator — Meta Interest,Meta,Lead Generation,Financing & EMI,6000,4400,280000,1960,0.70,20.10,1.60,4.00,4.1,Lowest Cost,2025-03-02,Active
+NB018,Car Finance — YouTube Preroll,YouTube,Awareness,Financing & EMI,7000,6600,2100000,8400,0.40,6.80,1.20,4.00,3.3,CPM,2025-03-01,Active
+NB019,Warm Audience — Meta All Cities,Meta,Conversions,Retargeting,5000,4600,95000,2850,3.00,11.20,3.80,4.50,7.2,Target CPA,2025-03-12,Active
+NB020,Cart Abandoners — Google RLSA,Google,Conversions,Retargeting,6000,5700,42000,2940,7.00,13.60,4.20,4.50,1.0,Target ROAS,2025-03-12,Active
+NB021,Cars24 Brand — YouTube Awareness,YouTube,Awareness,Brand Awareness,12000,11800,2400000,14400,0.60,5.80,0.90,2.00,3.2,CPM,2025-01-20,Active
+NB022,Cars24 Brand — Meta All India,Meta,Awareness,Brand Awareness,9000,8500,1600000,9600,0.60,6.30,0.80,2.00,2.9,CPM,2025-02-01,Active

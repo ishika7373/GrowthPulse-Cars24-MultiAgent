@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GrowthPulse v1 — Cars24 Performance Marketing Intelligence</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- ============ NAV ============ -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <span class="logo-mark">GP</span>
+      <span class="logo-text">GrowthPulse <em>v1</em></span>
+    </div>
+    <div class="nav-links">
+      <a href="#how">Architecture</a>
+      <a href="#agents">Agents</a>
+      <a href="#funnel">Funnel</a>
+      <span class="nav-pill" id="llm-mode-pill">LLM: …</span>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-text">
+      <span class="kicker">CARS24 INTERNAL · PERFORMANCE MARKETING</span>
+      <h1>What is broken in our campaigns <em>right now</em>, and exactly what should we fix?</h1>
+      <p class="lede">
+        GrowthPulse is a multi-agent intelligence system for Cars24's dual-funnel ad operations.
+        It turns 2–3 hours of manual dashboarding across Meta, Google Ads and YouTube into a
+        single conversation with an LLM-powered Router, four specialist agents and a
+        Supervisor that synthesises one prioritised action plan.
+      </p>
+      <div class="hero-cta">
+        <button class="btn-primary" onclick="GP.openChat()">Chat with GrowthPulse →</button>
+        <a class="btn-ghost" href="#agents">Meet the agents</a>
+      </div>
+      <div class="hero-stats" id="hero-stats">
+        <div class="stat"><span class="stat-value" id="stat-campaigns">…</span><span class="stat-label">Active Campaigns</span></div>
+        <div class="stat"><span class="stat-value" id="stat-critical">…</span><span class="stat-label">Critical Status</span></div>
+        <div class="stat"><span class="stat-value" id="stat-cpl">…</span><span class="stat-label">Seller Blended CPL</span></div>
+        <div class="stat"><span class="stat-value" id="stat-roas">…</span><span class="stat-label">Buyer Blended ROAS</span></div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="hero-card-hd">Daily Briefing — preview</div>
+      <ul id="hero-briefing-bullets">
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+        <li class="skeleton"></li>
+      </ul>
+      <button class="link-arrow" onclick="GP.openChat()">Open full briefing →</button>
+    </div>
+  </header>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section id="how" class="section">
+    <h2>Architecture — Router + 4 Specialists + Supervisor</h2>
+    <p class="section-lede">
+      Every query enters the Router, an LLM classifier that emits structured JSON. Single-domain
+      questions go to one specialist; cross-domain questions become MULTI and the Supervisor
+      orchestrates 2+ specialists, then synthesises one prioritised plan.
+    </p>
+    <div class="arch">
+      <div class="arch-row"><div class="arch-node user">User Query</div></div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row"><div class="arch-node router">Router Agent <small>LLM classifier · 6 routes</small></div></div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row specialists">
+        <div class="arch-node spec spec-campaign">CampaignAgent <small>2 tools</small></div>
+        <div class="arch-node spec spec-audience">AudienceAgent <small>2 tools</small></div>
+        <div class="arch-node spec spec-bidding">BiddingAgent <small>2 tools</small></div>
+        <div class="arch-node spec spec-budget">BudgetAgent <small>2 tools</small></div>
+      </div>
+      <div class="arch-arrow">↓ <span class="muted">(MULTI + Daily Briefing)</span></div>
+      <div class="arch-row"><div class="arch-node supervisor">Supervisor / Synthesis Agent <small>no tools</small></div></div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row"><div class="arch-node final">Final Answer · Prioritised Action Plan</div></div>
+    </div>
+  </section>
+
+  <!-- ============ AGENT CARDS ============ -->
+  <section id="agents" class="section alt">
+    <h2>Five LLM-powered agents, eight scoped tools</h2>
+    <div class="agent-grid">
+      <article class="agent-card campaign">
+        <h3>CampaignAgent</h3>
+        <p class="persona">Creative-and-performance analyst — speaks in CTR benchmarks, frequency scores, engagement deltas.</p>
+        <ul>
+          <li><code>diagnose_campaign_health</code></li>
+          <li><code>get_creative_performance</code></li>
+        </ul>
+      </article>
+      <article class="agent-card audience">
+        <h3>AudienceAgent</h3>
+        <p class="persona">Audience strategist — reach %, overlap %, segment recommendations.</p>
+        <ul>
+          <li><code>get_audience_saturation</code></li>
+          <li><code>find_audience_overlap</code></li>
+        </ul>
+      </article>
+      <article class="agent-card bidding">
+        <h3>BiddingAgent</h3>
+        <p class="persona">Margin-and-efficiency steward — ROAS, CPA, bid caps, cost-per-result.</p>
+        <ul>
+          <li><code>get_bidding_analysis</code></li>
+          <li><code>recommend_bid_strategy</code></li>
+        </ul>
+      </article>
+      <article class="agent-card budget">
+        <h3>BudgetAgent</h3>
+        <p class="persona">Financial steward — pacing %, opportunity cost, reallocation impact.</p>
+        <ul>
+          <li><code>get_budget_pacing</code></li>
+          <li><code>get_budget_waste</code></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ FUNNEL ============ -->
+  <section id="funnel" class="section">
+    <h2>Cars24 dual-funnel coverage</h2>
+    <div class="funnel-grid" id="funnel-grid"><!-- injected --></div>
+  </section>
+
+  <footer class="footer">
+    <span>GrowthPulse v1 · Multi-Agent + LLM Router · Cars24 Performance Marketing</span>
+    <span>Built with FastAPI · LangChain · ConversationBufferMemory</span>
+  </footer>
+
+  <!-- ============ FLOATING CHAT ICON ============ -->
+  <button id="chat-fab" class="chat-fab" onclick="GP.openChat()" aria-label="Open GrowthPulse chat">
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    </svg>
+    <span class="fab-pulse"></span>
+  </button>
+
+  <!-- ============ CHAT PANEL ============ -->
+  <aside id="chat-panel" class="chat-panel" aria-hidden="true">
+    <header class="chat-hd">
+      <div class="chat-title">
+        <span class="logo-mark sm">GP</span>
+        <div>
+          <strong>GrowthPulse</strong>
+          <small id="chat-route-pill">ready</small>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <select id="campaign-filter" title="Campaign type filter">
+          <option>All Campaigns</option>
+          <option>Seller Acquisition</option>
+          <option>Buyer Intent</option>
+          <option>Financing &amp; EMI</option>
+          <option>Retargeting</option>
+          <option>Brand Awareness</option>
+        </select>
+        <button class="icon-btn" id="trace-toggle" title="Agent Trace">⚙︎</button>
+        <button class="icon-btn" id="clear-chat" title="Clear chat">⟳</button>
+        <button class="icon-btn" id="close-chat" title="Close" onclick="GP.closeChat()">✕</button>
+      </div>
+    </header>
+
+    <!-- Account Summary strip -->
+    <div class="acct-strip" id="acct-strip">
+      <div><span id="acct-active">…</span><small>Active</small></div>
+      <div><span id="acct-critical">…</span><small>Critical</small></div>
+      <div><span id="acct-cpl">…</span><small>Seller CPL</small></div>
+      <div><span id="acct-roas">…</span><small>Buyer ROAS</small></div>
+      <div><span id="acct-spend">…</span><small>Spend / Budget</small></div>
+    </div>
+
+    <!-- Agent Trace panel -->
+    <div class="trace-panel collapsed" id="trace-panel">
+      <div class="trace-hd">Agent Trace</div>
+      <div class="trace-body" id="trace-body">No query yet.</div>
+    </div>
+
+    <!-- Conversation -->
+    <div class="chat-body" id="chat-body"></div>
+
+    <!-- Quick prompts -->
+    <div class="quick-row" id="quick-row">
+      <button class="quick" data-q="Which seller lead campaigns have CTR below 0.8%?">Seller CTR below 0.8%</button>
+      <button class="quick" data-q="What is the blended ROAS on our Google Search buyer intent campaigns?">Buyer Google ROAS</button>
+      <button class="quick" data-q="Find audience overlap inside NB001 Delhi NCR seller campaign">Overlap NB001</button>
+      <button class="quick" data-q="Why is the EMI retargeting campaign NB015 underperforming?">Why NB015 down?</button>
+      <button class="quick" data-q="Show me wasted spend across the account and where to reallocate it">Wasted spend</button>
+      <button class="quick" data-q="Should we pause or scale NB019 warm audience retargeting?">Pause/scale NB019?</button>
+    </div>
+
+    <form class="chat-input" id="chat-form" autocomplete="off">
+      <input id="chat-input" placeholder="Ask GrowthPulse anything about your campaigns…" />
+      <button class="btn-send" type="submit">Send</button>
+    </form>
+  </aside>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
