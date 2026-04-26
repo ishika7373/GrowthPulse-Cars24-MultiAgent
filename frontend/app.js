@@ -19,7 +19,8 @@
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   // ------- State -------
-  let briefingShown = false;
+  let briefingShown = false;          // has the chat already rendered the briefing?
+  let briefingPromise = null;         // single shared fetch — used by hero card + chat panel
   let funnelData = null;
 
   // ------- API wrappers -------
@@ -41,18 +42,58 @@
   }
 
   // Convert the supervisor's markdown-style response into safe HTML.
+  // Block-level parser: split into lines, group consecutive bullet lines,
+  // wrap **bold** sections as headers, leave everything else as paragraphs.
   function formatAnswer(text) {
     if (!text) return "";
-    const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    let html = escape(text);
-    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Bullet lists
-    html = html.replace(/(^|\n)\s*[-•]\s+(.+)/g, "$1<li>$2</li>");
-    html = html.replace(/(<li>.*?<\/li>(\n<li>.*?<\/li>)*)/gs, "<ul>$1</ul>");
-    html = html.replace(/\n{2,}/g, "</p><p>");
-    html = html.replace(/\n/g, "<br/>");
-    return "<p>" + html + "</p>";
+    const lines = String(text).replace(/\r/g, "").split("\n");
+    const out = [];
+    let listBuf = [];
+    let paraBuf = [];
+
+    const flushList = () => {
+      if (!listBuf.length) return;
+      out.push("<ul>" + listBuf.map(l => `<li>${formatInline(l)}</li>`).join("") + "</ul>");
+      listBuf = [];
+    };
+    const flushPara = () => {
+      if (!paraBuf.length) return;
+      const joined = paraBuf.join(" ").trim();
+      if (joined) out.push(`<p>${formatInline(joined)}</p>`);
+      paraBuf = [];
+    };
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      const bullet = line.match(/^[-•]\s+(.+)$/);
+      const header = line.match(/^\*\*(.+?)\*\*\s*:?$/);
+
+      if (bullet) {
+        flushPara();
+        listBuf.push(bullet[1]);
+      } else if (header) {
+        flushPara();
+        flushList();
+        out.push(`<h4 class="ans-h">${escapeHtml(header[1])}</h4>`);
+      } else if (line === "") {
+        flushPara();
+        flushList();
+      } else {
+        flushList();
+        paraBuf.push(line);
+      }
+    }
+    flushList();
+    flushPara();
+    return out.join("\n");
+  }
+
+  // Inline formatter for **bold**, `code`, and HTML escaping.
+  function formatInline(text) {
+    let s = escapeHtml(text);
+    s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    return s;
   }
 
   // ------- Boot -------
@@ -67,9 +108,53 @@
       paintAccountSummary(summary);
       paintFunnel(summary);
       funnelData = { summary, campaigns };
+
+      // Kick off the Daily Briefing fetch immediately so the hero preview
+      // populates without waiting for the user to open the chat panel.
+      // The same promise is reused when the chat opens — no duplicate calls.
+      kickoffBriefing();
     } catch (e) {
       console.warn("boot failed", e);
     }
+  }
+
+  function kickoffBriefing() {
+    if (briefingPromise) return briefingPromise;
+    briefingPromise = apiGET("/api/briefing")
+      .then(res => { paintHeroBriefing(res); return res; })
+      .catch(err => { paintHeroBriefingError(err); throw err; });
+    return briefingPromise;
+  }
+
+  function paintHeroBriefing(res) {
+    const ul = $("#hero-briefing-bullets");
+    if (!ul) return;
+    const lines = (res.answer || "")
+      .split(/\n+/)
+      .map(l => l.trim())
+      .filter(l => /^[-•]\s+/.test(l))
+      .map(l => l.replace(/^[-•]\s+/, ""))
+      .slice(0, 3);
+    if (lines.length) {
+      ul.innerHTML = lines.map(l => `<li>${escapeHtml(l)}</li>`).join("");
+    } else {
+      // Fallback: take the first non-header sentence
+      const text = (res.answer || "").replace(/\*\*[^*]+\*\*/g, "").trim();
+      ul.innerHTML = `<li>${escapeHtml(text.slice(0, 240))}${text.length > 240 ? "…" : ""}</li>`;
+    }
+    const status = $("#hero-briefing-status");
+    if (status) {
+      const ag = (res.specialists_consulted || []).length;
+      status.textContent = `Synthesised from ${ag} specialist${ag === 1 ? "" : "s"} just now.`;
+    }
+    document.querySelector(".hero-card")?.classList.add("ready");
+  }
+
+  function paintHeroBriefingError(err) {
+    const ul = $("#hero-briefing-bullets");
+    if (ul) ul.innerHTML = `<li style="color:var(--bad);">Could not load briefing: ${escapeHtml(err.message || String(err))}</li>`;
+    const status = $("#hero-briefing-status");
+    if (status) status.textContent = "Briefing failed — check the server logs.";
   }
 
   function paintAccountSummary(s) {
@@ -113,7 +198,8 @@
     briefingShown = true;
     const placeholder = appendBot('<span class="typing"><span></span><span></span><span></span></span> Generating Daily Campaign Briefing — Supervisor orchestrating all 4 specialists…');
     try {
-      const res = await apiGET("/api/briefing");
+      // kickoffBriefing() returns a cached promise if the hero card already started fetching.
+      const res = await kickoffBriefing();
       placeholder.remove();
       const specialists = res.specialists_consulted || [];
       const html = specialistsHtml(specialists, "Supervisor") + formatAnswer(res.answer);
@@ -123,17 +209,8 @@
         specialists_consulted: specialists,
         tool_calls: (res.specialist_outputs || []).map(o => ({ specialist: o.agent, tool_calls: o.tool_calls || [] })),
       });
-      // Hero card preview (first 3 bullets)
-      const lines = (res.answer || "").split(/\n+/).filter(l => /^\s*[-•]/.test(l)).slice(0, 3);
-      const ul = $("#hero-briefing-bullets");
-      if (lines.length) {
-        ul.innerHTML = lines.map(l => `<li>${l.replace(/^\s*[-•]\s*/, "")}</li>`).join("");
-      } else {
-        ul.innerHTML = `<li>${(res.answer || "").slice(0, 220)}…</li>`;
-      }
     } catch (e) {
-      placeholder.querySelector(".typing")?.remove();
-      placeholder.innerHTML = "Could not load briefing: " + e.message;
+      placeholder.innerHTML = "❌ Could not load briefing: " + escapeHtml(e.message || String(e));
     }
   }
 
