@@ -120,7 +120,38 @@ def list_campaigns() -> List[Dict[str, Any]]:
 
 @app.get("/api/briefing")
 def briefing() -> Dict[str, Any]:
-    return daily_briefing()
+    """
+    Daily Briefing endpoint. Wrapped in a try/except so any failure (OpenAI
+    rate limit, transient network blip, missing env var) returns a usable
+    fallback payload instead of HTTP 500.
+    """
+    try:
+        return daily_briefing()
+    except Exception as exc:
+        import traceback, sys
+        print(f"[/api/briefing] FAILED: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        # Surface a structured error the frontend can render
+        return JSONResponse(
+            status_code=200,
+            content={
+                "agent": "Supervisor",
+                "answer": (
+                    "**Question**\nGenerate the Cars24 GrowthPulse Daily Campaign Briefing.\n\n"
+                    "**Insight**\n"
+                    f"- Briefing generation failed server-side ({type(exc).__name__}).\n"
+                    "- This is usually because OPENAI_API_KEY is missing, invalid, or the OpenAI account "
+                    "has no remaining credit.\n"
+                    "- The Router and individual specialists still work — try a single-domain question.\n\n"
+                    "**Recommended Next Action**\n"
+                    "Check the Render Logs tab for the full traceback, then verify the OPENAI_API_KEY "
+                    "env var on Render → Service → Environment."
+                ),
+                "specialists_consulted": [],
+                "specialist_outputs": [],
+                "error": str(exc),
+            },
+        )
 
 
 @app.post("/api/reset")
@@ -138,51 +169,67 @@ def chat(req: ChatRequest) -> Dict[str, Any]:
     history = MEMORY.get_history(req.session_id)
     MEMORY.append(req.session_id, "user", req.query)
 
-    # 1. Router classification
-    decision = route_query(query)
-    route = decision["route"]
-    specialists = decision["suggested_specialists"]
+    try:
+        # 1. Router classification
+        decision = route_query(query)
+        route = decision["route"]
+        specialists = decision["suggested_specialists"]
 
-    # 2. Dispatch
-    if route == "GENERAL":
-        answer = _general_answer(query)
-        result: Dict[str, Any] = {
-            "agent": "GeneralLLM",
-            "answer": answer,
-            "specialists_consulted": [],
-            "specialist_outputs": [],
-        }
-    elif route == "MULTI":
-        result = supervise_multi(query, specialists, history)
-    else:
-        # Single-domain
-        runner = SPECIALIST_RUNNERS.get(specialists[0]) if specialists else None
-        if not runner:
+        # 2. Dispatch
+        if route == "GENERAL":
             answer = _general_answer(query)
-            result = {"agent": "GeneralLLM", "answer": answer, "specialists_consulted": [], "specialist_outputs": []}
-        else:
-            spec = runner(query, history)
-            result = {
-                "agent": spec["agent"],
-                "answer": spec.get("answer", ""),
-                "specialists_consulted": [spec["agent"]],
-                "specialist_outputs": [spec],
+            result: Dict[str, Any] = {
+                "agent": "GeneralLLM",
+                "answer": answer,
+                "specialists_consulted": [],
+                "specialist_outputs": [],
             }
+        elif route == "MULTI":
+            result = supervise_multi(query, specialists, history)
+        else:
+            runner = SPECIALIST_RUNNERS.get(specialists[0]) if specialists else None
+            if not runner:
+                answer = _general_answer(query)
+                result = {"agent": "GeneralLLM", "answer": answer, "specialists_consulted": [], "specialist_outputs": []}
+            else:
+                spec = runner(query, history)
+                result = {
+                    "agent": spec["agent"],
+                    "answer": spec.get("answer", ""),
+                    "specialists_consulted": [spec["agent"]],
+                    "specialist_outputs": [spec],
+                }
 
-    MEMORY.append(req.session_id, "assistant", result.get("answer", ""))
+        MEMORY.append(req.session_id, "assistant", result.get("answer", ""))
 
-    return {
-        "router": decision,
-        "result": result,
-        "trace": {
-            "route": route,
-            "specialists_consulted": result.get("specialists_consulted", []),
-            "tool_calls": [
-                {"specialist": o["agent"], "tool_calls": o.get("tool_calls", [])}
-                for o in result.get("specialist_outputs", [])
-            ],
-        },
-    }
+        return {
+            "router": decision,
+            "result": result,
+            "trace": {
+                "route": route,
+                "specialists_consulted": result.get("specialists_consulted", []),
+                "tool_calls": [
+                    {"specialist": o["agent"], "tool_calls": o.get("tool_calls", [])}
+                    for o in result.get("specialist_outputs", [])
+                ],
+            },
+        }
+    except Exception as exc:
+        import traceback, sys
+        print(f"[/api/chat] FAILED: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        msg = (
+            "I hit a server-side error while answering. "
+            f"({type(exc).__name__}: {exc}) "
+            "Check the Render Logs tab for the full traceback."
+        )
+        MEMORY.append(req.session_id, "assistant", msg)
+        return {
+            "router": {"route": "ERROR", "reason": str(exc), "suggested_specialists": []},
+            "result": {"agent": "ErrorHandler", "answer": msg, "specialists_consulted": [], "specialist_outputs": []},
+            "trace": {"route": "ERROR", "specialists_consulted": [], "tool_calls": []},
+            "error": str(exc),
+        }
 
 
 # ------------------ Static frontend ------------------

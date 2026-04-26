@@ -89,8 +89,37 @@ def _call_specialists_parallel(
     return outputs
 
 
+def _template_synthesis(query: str, specialist_outputs: List[Dict[str, Any]], note: str = "") -> str:
+    """Deterministic synthesis used when no LLM is available OR the LLM call fails."""
+    bullets = []
+    for o in specialist_outputs:
+        calls = o.get("tool_calls", [])
+        if not calls:
+            continue
+        first = calls[0]["result"]
+        if isinstance(first, dict):
+            key_metric = (
+                first.get("status_flag") or first.get("verdict")
+                or first.get("roas_flag") or first.get("pacing_flag")
+                or "diagnostic"
+            )
+            label = first.get("campaign_name") or first.get("ad_set_name") or "N/A"
+            bullets.append(f"- {o['agent']}: {key_metric} on {label}")
+    header_note = f"\n\n_{note}_" if note else ""
+    return (
+        f"**Question**\n{query}\n\n"
+        f"**Insight**\n" + ("\n".join(bullets[:5]) or "- No specialist returned a flag.") + "\n\n"
+        f"**Recommended Next Action**\nReview the flagged campaigns above and reallocate ~INR 25,000/day "
+        f"from the lowest-ROAS asset into the strongest performer."
+        f"{header_note}"
+    )
+
+
 def _synthesise(query: str, specialist_outputs: List[Dict[str, Any]]) -> str:
     llm = get_llm(temperature=0.3, max_tokens=600)
+
+    if is_mock(llm):
+        return _template_synthesis(query, specialist_outputs)
 
     bundle = "\n\n".join(
         f"[{o['agent']}] {o.get('answer', '')}\n"
@@ -99,34 +128,27 @@ def _synthesise(query: str, specialist_outputs: List[Dict[str, Any]]) -> str:
         for o in specialist_outputs
     )
 
-    if is_mock(llm):
-        # Templated synthesis for offline mode
-        bullets = []
-        for o in specialist_outputs:
-            calls = o.get("tool_calls", [])
-            if not calls:
-                continue
-            first = calls[0]["result"]
-            if isinstance(first, dict):
-                key_metric = (
-                    first.get("status_flag") or first.get("verdict")
-                    or first.get("roas_flag") or first.get("pacing_flag")
-                    or "diagnostic"
-                )
-                bullets.append(f"- {o['agent']}: {key_metric} on {first.get('campaign_name', first.get('ad_set_name', 'N/A'))}")
-        return (
-            f"**Question**\n{query}\n\n"
-            f"**Insight**\n" + "\n".join(bullets[:5]) + "\n\n"
-            f"**Recommended Next Action**\nReview the flagged campaigns above and reallocate ~INR 25,000/day "
-            f"from the lowest-ROAS asset into the strongest performer."
+    try:
+        from langchain_core.messages import HumanMessage, SystemMessage
+        resp = llm.invoke([
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=f"User question:\n{query}\n\nSpecialist outputs:\n{bundle}"),
+        ])
+        text = getattr(resp, "content", "").strip()
+        if text:
+            return text
+        # Empty response — fall through to template
+        return _template_synthesis(query, specialist_outputs, note="LLM returned an empty response — using template.")
+    except Exception as exc:
+        # Log the real reason but still return a usable answer to the user.
+        import traceback, sys
+        print(f"[supervisor] LLM synthesis failed: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        return _template_synthesis(
+            query,
+            specialist_outputs,
+            note=f"OpenAI synthesis unavailable ({type(exc).__name__}). Showing the deterministic synthesis from specialist tool outputs.",
         )
-
-    from langchain_core.messages import HumanMessage, SystemMessage
-    resp = llm.invoke([
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=f"User question:\n{query}\n\nSpecialist outputs:\n{bundle}"),
-    ])
-    return getattr(resp, "content", "").strip()
 
 
 # ----------------- Public API -----------------
