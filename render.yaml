@@ -1,0 +1,28 @@
+# Render.com Blueprint for GrowthPulse v1.
+# https://render.com/docs/blueprint-spec
+#
+# When you connect this repo on render.com, Render reads this file and provisions
+# the web service automatically. You only need to set OPENAI_API_KEY in the
+# Render dashboard under the service's Environment tab (it is marked sync:false
+# below so the secret is never written into git).
+
+services:
+  - type: web
+    name: growthpulse-cars24
+    runtime: python
+    plan: free                       # Change to 'starter' if you outgrow free
+    region: singapore                # Closest to India; pick the region nearest you
+    branch: main
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.app:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
+    autoDeploy: true                 # Push to main -> auto-redeploy
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: OPENAI_API_KEY
+        sync: false                  # MUST be set manually in Render dashboard
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: GROWTHPULSE_FORCE_MOCK
+        value: "false"

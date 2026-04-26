@@ -23,7 +23,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PORT = int(os.getenv("GROWTHPULSE_PORT", "8000"))
+# PORT is set by cloud platforms (Render, Railway, Heroku, Fly.io).
+# Locally we honour GROWTHPULSE_PORT, falling back to 8000.
+PORT = int(os.getenv("PORT") or os.getenv("GROWTHPULSE_PORT", "8000"))
+
+# Bind 0.0.0.0 in cloud, 127.0.0.1 locally (so cloud reverse-proxies can reach us).
+HOST = "0.0.0.0" if os.getenv("PORT") else "127.0.0.1"
+OPEN_BROWSER = not os.getenv("PORT")  # never open a browser on a server
 
 
 def _open_browser_when_ready(url: str, delay: float = 1.5) -> None:
@@ -40,18 +46,21 @@ def main() -> None:
     print("=" * 64)
     print(" GrowthPulse v1 — Cars24 Multi-Agent Performance Marketing")
     print("=" * 64)
-    print(f"  Open  : http://127.0.0.1:{PORT}/")
+    print(f"  Bind  : {HOST}:{PORT}")
+    print(f"  Local : http://127.0.0.1:{PORT}/")
     print(f"  Health: http://127.0.0.1:{PORT}/api/health")
     print()
     if not os.getenv("OPENAI_API_KEY") or "your" in os.getenv("OPENAI_API_KEY", "").lower():
         print("  [!] OPENAI_API_KEY not set — falling back to deterministic Mock LLM.")
-        print("      Add OPENAI_API_KEY to .env for full natural-language answers.")
+        print("      Add OPENAI_API_KEY to .env (local) or platform env vars (cloud).")
         print()
 
-    _open_browser_when_ready(f"http://127.0.0.1:{PORT}/")
+    if OPEN_BROWSER:
+        _open_browser_when_ready(f"http://127.0.0.1:{PORT}/")
+
     uvicorn.run(
         "backend.app:app",
-        host="127.0.0.1",
+        host=HOST,
         port=PORT,
         reload=False,
         log_level="info",
