@@ -17,8 +17,11 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+import shutil
+import tempfile
+
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +29,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
+from . import data_loader
 from .data_loader import DATA, account_summary, CAMPAIGN_TYPE_BREAKDOWN
 from .llm import _has_real_key, FORCE_MOCK
 from .memory import MEMORY
@@ -103,7 +107,58 @@ def _scope_query(query: str, campaign_type: Optional[str]) -> str:
 
 @app.get("/api/health")
 def health() -> Dict[str, Any]:
-    return {"ok": True, "llm": _llm_mode(), "campaigns": int(len(DATA.campaigns)), "ad_sets": int(len(DATA.adsets))}
+    return {
+        "ok": True,
+        "llm": _llm_mode(),
+        "campaigns": int(len(DATA.campaigns)),
+        "ad_sets": int(len(DATA.adsets)),
+        "data_source": data_loader.DATA_SOURCE,
+    }
+
+
+@app.get("/api/data-source")
+def data_source() -> Dict[str, Any]:
+    return data_loader.DATA_SOURCE
+
+
+@app.post("/api/upload-data")
+async def upload_data(
+    campaigns: UploadFile = File(..., description="Campaigns CSV (22-row schema)"),
+    adsets: UploadFile = File(..., description="Ad sets CSV (60-row schema)"),
+) -> Dict[str, Any]:
+    """
+    Replace the active dataset with user-uploaded campaigns + ad sets CSVs.
+    The change applies globally for this Render instance until /api/reset-data
+    is called.
+    """
+    try:
+        tmp_dir = tempfile.mkdtemp(prefix="growthpulse-upload-")
+        c_path = os.path.join(tmp_dir, "campaigns.csv")
+        a_path = os.path.join(tmp_dir, "adsets.csv")
+        with open(c_path, "wb") as f:
+            shutil.copyfileobj(campaigns.file, f)
+        with open(a_path, "wb") as f:
+            shutil.copyfileobj(adsets.file, f)
+
+        check = data_loader.validate_csv_paths(c_path, a_path)
+        if not check["ok"]:
+            return JSONResponse(status_code=400, content={"ok": False, "errors": check["errors"]})
+
+        info = data_loader.load_from_paths(c_path, a_path, label=campaigns.filename or "user-upload")
+        info["data_source"] = data_loader.DATA_SOURCE
+        return info
+    except Exception as exc:
+        import traceback, sys
+        print(f"[/api/upload-data] FAILED: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        return JSONResponse(status_code=400, content={"ok": False, "errors": [str(exc)]})
+
+
+@app.post("/api/reset-data")
+def reset_data() -> Dict[str, Any]:
+    info = data_loader.reset_to_demo()
+    info["data_source"] = data_loader.DATA_SOURCE
+    return info
 
 
 @app.get("/api/account-summary")

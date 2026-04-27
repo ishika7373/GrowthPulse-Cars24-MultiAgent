@@ -20,6 +20,7 @@
       <a href="#how">Architecture</a>
       <a href="#agents">Agents</a>
       <a href="#funnel">Funnel</a>
+      <button class="nav-pill data-pill" id="data-source-pill" title="Click to upload your own data" onclick="GP.openUpload()">Data: …</button>
       <span class="nav-pill" id="llm-mode-pill">LLM: …</span>
     </div>
   </nav>
@@ -184,6 +185,22 @@
       <div class="trace-body" id="trace-body">No query yet.</div>
     </div>
 
+    <!-- Briefing dashboard (cards) -->
+    <section class="briefing-dash" id="briefing-dash" hidden>
+      <div class="briefing-hd">
+        <div>
+          <strong>Daily Briefing</strong>
+          <small id="briefing-meta">Supervisor · 4 specialists</small>
+        </div>
+        <button class="icon-btn" id="briefing-refresh" title="Re-run briefing">↻</button>
+      </div>
+      <div class="briefing-cards" id="briefing-cards"></div>
+      <details class="briefing-synth" id="briefing-synth-wrap">
+        <summary>Read full Supervisor synthesis</summary>
+        <div class="briefing-synth-body" id="briefing-synth-body"></div>
+      </details>
+    </section>
+
     <!-- Conversation -->
     <div class="chat-body" id="chat-body"></div>
 
@@ -202,6 +219,44 @@
       <button class="btn-send" type="submit">Send</button>
     </form>
   </aside>
+
+  <!-- ============ UPLOAD MODAL ============ -->
+  <div class="modal-backdrop" id="upload-modal" hidden>
+    <div class="modal">
+      <header class="modal-hd">
+        <h3>Upload your own campaign data</h3>
+        <button class="icon-btn" onclick="GP.closeUpload()">✕</button>
+      </header>
+      <div class="modal-body">
+        <p class="modal-lede">
+          Upload two CSVs that match the Cars24 schema. The system will validate the columns,
+          replace the active dataset, and re-run the Daily Briefing on your data.
+        </p>
+
+        <div class="upload-row">
+          <label class="upload-zone" for="up-campaigns">
+            <span class="upload-title">campaigns.csv</span>
+            <span class="upload-sub">Required columns: campaign_id, campaign_name, channel, daily_budget, spend_so_far, ctr, roas, target_roas, frequency, status…</span>
+            <span class="upload-file" id="up-campaigns-name">No file chosen</span>
+            <input type="file" id="up-campaigns" accept=".csv" hidden>
+          </label>
+          <label class="upload-zone" for="up-adsets">
+            <span class="upload-title">adsets.csv</span>
+            <span class="upload-sub">Required columns: ad_set_id, campaign_id, ad_set_name, audience_size, reach, frequency, ad_set_spend, ad_set_roas, ctr, audience_overlap_pct…</span>
+            <span class="upload-file" id="up-adsets-name">No file chosen</span>
+            <input type="file" id="up-adsets" accept=".csv" hidden>
+          </label>
+        </div>
+
+        <div class="upload-status" id="upload-status"></div>
+
+        <div class="upload-actions">
+          <button class="btn-ghost" onclick="GP.resetData()" id="btn-reset-demo">Reset to demo data</button>
+          <button class="btn-primary" id="btn-upload" onclick="GP.doUpload()" disabled>Upload &amp; replace dataset</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

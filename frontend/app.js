@@ -105,6 +105,7 @@
         apiGET("/api/campaigns"),
       ]);
       $("#llm-mode-pill").textContent = "LLM: " + (health.llm === "openai" ? "OpenAI gpt-4o-mini" : "Mock (offline)");
+      paintDataSource(health.data_source);
       paintAccountSummary(summary);
       paintFunnel(summary);
       funnelData = { summary, campaigns };
@@ -196,22 +197,118 @@
   async function maybeShowBriefing() {
     if (briefingShown) return;
     briefingShown = true;
-    const placeholder = appendBot('<span class="typing"><span></span><span></span><span></span></span> Generating Daily Campaign Briefing — Supervisor orchestrating all 4 specialists…');
+    const dash = $("#briefing-dash");
+    if (dash) dash.hidden = false;
+    paintBriefingLoading();
     try {
-      // kickoffBriefing() returns a cached promise if the hero card already started fetching.
       const res = await kickoffBriefing();
-      placeholder.remove();
-      const specialists = res.specialists_consulted || [];
-      const html = specialistsHtml(specialists, "Supervisor") + formatAnswer(res.answer);
-      appendBot(html);
+      paintBriefingDashboard(res);
       paintTrace({
         route: "DAILY_BRIEFING",
-        specialists_consulted: specialists,
+        specialists_consulted: res.specialists_consulted || [],
         tool_calls: (res.specialist_outputs || []).map(o => ({ specialist: o.agent, tool_calls: o.tool_calls || [] })),
       });
     } catch (e) {
-      placeholder.innerHTML = "❌ Could not load briefing: " + escapeHtml(e.message || String(e));
+      paintBriefingError(e);
     }
+  }
+
+  async function refreshBriefing() {
+    briefingPromise = null;          // bust cache
+    briefingShown = false;
+    const dash = $("#briefing-dash"); if (dash) dash.hidden = false;
+    paintBriefingLoading();
+    try {
+      const res = await kickoffBriefing();
+      paintBriefingDashboard(res);
+      // Also re-paint hero card
+      paintHeroBriefing(res);
+    } catch (e) {
+      paintBriefingError(e);
+    }
+  }
+
+  function paintBriefingLoading() {
+    $("#briefing-cards").innerHTML = `
+      <div class="bcard">
+        <div class="bcard-title">Supervisor is orchestrating all 4 specialists…</div>
+        <div class="bcard-action"><small>This takes ~10-30 seconds with real OpenAI.</small></div>
+      </div>`;
+    $("#briefing-meta").textContent = "Supervisor · running…";
+  }
+
+  function paintBriefingError(err) {
+    $("#briefing-cards").innerHTML = `
+      <div class="bcard severity-critical">
+        <div class="bcard-title">Briefing failed</div>
+        <div class="bcard-action">${escapeHtml(err.message || String(err))}</div>
+      </div>`;
+  }
+
+  function paintBriefingDashboard(res) {
+    const specialists = res.specialists_consulted || [];
+    $("#briefing-meta").textContent = `Supervisor · synthesised from ${specialists.length} specialist${specialists.length === 1 ? "" : "s"}`;
+
+    const cards = res.issue_cards || [];
+    if (!cards.length) {
+      $("#briefing-cards").innerHTML = `
+        <div class="bcard severity-info">
+          <div class="bcard-title">No critical issues right now ✓</div>
+          <div class="bcard-action">All campaigns are inside healthy CTR / ROAS / pacing bands.</div>
+        </div>`;
+    } else {
+      $("#briefing-cards").innerHTML = cards.map(renderCard).join("");
+      // Wire drill-in buttons
+      Array.from(document.querySelectorAll(".bcard-drill")).forEach(btn => {
+        btn.addEventListener("click", () => {
+          const q = btn.dataset.q;
+          if (!q) return;
+          $("#chat-input").value = q;
+          $("#chat-input").focus();
+          sendQuery(q);
+        });
+      });
+    }
+
+    // Synthesis prose collapsible below
+    $("#briefing-synth-body").innerHTML = formatAnswer(res.answer);
+  }
+
+  function renderCard(c) {
+    const inrFmt = (n) => {
+      if (!n) return "—";
+      if (n >= 1e5) return "₹" + (n / 1e5).toFixed(2) + " L";
+      if (n >= 1000) return "₹" + (n / 1000).toFixed(1) + "k";
+      return "₹" + Math.round(n);
+    };
+    const metricsHtml = (c.metrics || []).map(m => `
+      <div class="bcard-metric flag-${m.flag}">
+        <small>${escapeHtml(m.label)}</small>
+        <strong>${escapeHtml(m.value)}</strong>
+      </div>
+    `).join("");
+    const specHtml = (c.specialists || []).map(s => `<span class="chip ${s}">${s}</span>`).join("");
+
+    return `
+      <article class="bcard severity-${c.severity}">
+        <div class="bcard-hd">
+          <div class="bcard-title">
+            #${c.rank} ${escapeHtml(c.campaign_name)}
+            <small>${escapeHtml(c.campaign_id)} · ${escapeHtml(c.channel)} · ${escapeHtml(c.campaign_type)}</small>
+          </div>
+          <span class="sev-badge severity-${c.severity}">${c.severity}</span>
+        </div>
+        <div class="bcard-metrics">${metricsHtml}</div>
+        <div class="bcard-action">
+          <small>RECOMMENDED ACTION · est. impact ${inrFmt(c.estimated_impact_inr)}/day</small><br/>
+          ${escapeHtml(c.recommended_action)}
+        </div>
+        <div class="bcard-foot">
+          <div class="bcard-specialists">${specHtml}</div>
+          <button class="bcard-drill" data-q="${escapeHtml(c.drill_in_query)}">Drill in →</button>
+        </div>
+      </article>
+    `;
   }
 
   // ------- Chat send -------
@@ -313,6 +410,93 @@
     $("#chat-panel").setAttribute("aria-hidden", "true");
   }
 
+  // ------- Data source / upload -------
+  function paintDataSource(src) {
+    if (!src) return;
+    const pill = $("#data-source-pill");
+    if (!pill) return;
+    const label = src.type === "uploaded" ? `Data: ${src.campaigns_filename}` : "Data: demo";
+    pill.textContent = label;
+    pill.classList.toggle("uploaded", src.type === "uploaded");
+  }
+
+  function openUpload() {
+    $("#upload-modal").hidden = false;
+    $("#up-campaigns-name").textContent = "No file chosen";
+    $("#up-adsets-name").textContent = "No file chosen";
+    $("#upload-status").textContent = "";
+    $("#upload-status").className = "upload-status";
+    $("#btn-upload").disabled = true;
+    document.querySelector("label[for=up-campaigns]").classList.remove("has-file");
+    document.querySelector("label[for=up-adsets]").classList.remove("has-file");
+    $("#up-campaigns").value = "";
+    $("#up-adsets").value = "";
+  }
+
+  function closeUpload() { $("#upload-modal").hidden = true; }
+
+  function maybeEnableUpload() {
+    const c = $("#up-campaigns").files[0];
+    const a = $("#up-adsets").files[0];
+    $("#btn-upload").disabled = !(c && a);
+  }
+
+  async function doUpload() {
+    const c = $("#up-campaigns").files[0];
+    const a = $("#up-adsets").files[0];
+    if (!c || !a) return;
+    const fd = new FormData();
+    fd.append("campaigns", c);
+    fd.append("adsets", a);
+    const status = $("#upload-status");
+    status.textContent = "Uploading + validating…";
+    status.className = "upload-status";
+    $("#btn-upload").disabled = true;
+    try {
+      const res = await fetch("/api/upload-data", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        status.textContent = "❌ " + (data.errors ? data.errors.join("; ") : "Upload failed");
+        status.className = "upload-status error";
+        $("#btn-upload").disabled = false;
+        return;
+      }
+      status.textContent = `✅ Loaded ${data.campaigns_rows} campaigns + ${data.adsets_rows} ad sets. Refreshing…`;
+      status.className = "upload-status success";
+      paintDataSource(data.data_source);
+      // Refresh KPIs + briefing + funnel
+      const summary = await apiGET("/api/account-summary");
+      paintAccountSummary(summary);
+      paintFunnel(summary);
+      await refreshBriefing();
+      setTimeout(() => closeUpload(), 900);
+    } catch (e) {
+      status.textContent = "❌ " + e.message;
+      status.className = "upload-status error";
+      $("#btn-upload").disabled = false;
+    }
+  }
+
+  async function resetData() {
+    const status = $("#upload-status");
+    status.textContent = "Resetting to demo data…";
+    status.className = "upload-status";
+    try {
+      const res = await apiPOST("/api/reset-data", {});
+      paintDataSource(res.data_source);
+      const summary = await apiGET("/api/account-summary");
+      paintAccountSummary(summary);
+      paintFunnel(summary);
+      await refreshBriefing();
+      status.textContent = "✅ Demo dataset restored.";
+      status.className = "upload-status success";
+      setTimeout(() => closeUpload(), 900);
+    } catch (e) {
+      status.textContent = "❌ " + e.message;
+      status.className = "upload-status error";
+    }
+  }
+
   function wire() {
     $("#close-chat").onclick = closeChat;
     $("#chat-form").addEventListener("submit", (e) => {
@@ -330,10 +514,31 @@
       try { await apiPOST("/api/reset", { session_id: SESSION_ID }); } catch (_) {}
       maybeShowBriefing();
     };
+    $("#briefing-refresh").onclick = refreshBriefing;
+
+    // Upload modal wiring
+    const cInp = $("#up-campaigns");
+    const aInp = $("#up-adsets");
+    cInp.addEventListener("change", () => {
+      const f = cInp.files[0];
+      $("#up-campaigns-name").textContent = f ? f.name : "No file chosen";
+      document.querySelector("label[for=up-campaigns]").classList.toggle("has-file", !!f);
+      maybeEnableUpload();
+    });
+    aInp.addEventListener("change", () => {
+      const f = aInp.files[0];
+      $("#up-adsets-name").textContent = f ? f.name : "No file chosen";
+      document.querySelector("label[for=up-adsets]").classList.toggle("has-file", !!f);
+      maybeEnableUpload();
+    });
+    // Click backdrop to close
+    $("#upload-modal").addEventListener("click", (e) => {
+      if (e.target.id === "upload-modal") closeUpload();
+    });
   }
 
   // ------- Public API for inline onclicks -------
-  window.GP = { openChat, closeChat };
+  window.GP = { openChat, closeChat, openUpload, closeUpload, doUpload, resetData };
 
   document.addEventListener("DOMContentLoaded", () => {
     wire();

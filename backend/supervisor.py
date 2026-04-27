@@ -194,6 +194,87 @@ def _flagged_campaigns_for_briefing() -> Dict[str, Any]:
     }
 
 
+def _build_issue_cards() -> List[Dict[str, Any]]:
+    """
+    Build structured 'issue cards' for the visual briefing dashboard.
+    Each card is fully self-contained for the front-end to render — severity,
+    metrics, recommended action, drill-in query.
+    """
+    from .tools.campaign_tools import diagnose_campaign_health
+    from .tools.bidding_tools import get_bidding_analysis
+    from .tools.budget_tools import get_budget_pacing
+
+    df = DATA.campaigns
+    active = df[df["status"].str.lower() == "active"].copy()
+    # Compose an urgency score: critical CTR, high freq, sub-1 ROAS, big spend
+    active["urgency"] = (
+        (active["ctr"] < 0.8).astype(int) * 3 +
+        (active["frequency"] > 5).astype(int) * 3 +
+        (active["roas"] < 1.0).astype(int) * 2 +
+        (active["roas"] < (0.6 * active["target_roas"])).astype(int) * 2
+    )
+    top = active.sort_values(["urgency", "spend_so_far"], ascending=[False, False]).head(3)
+
+    cards: List[Dict[str, Any]] = []
+    for rank, (_, r) in enumerate(top.iterrows(), start=1):
+        cid = r["campaign_id"]
+        health = diagnose_campaign_health.invoke({"campaign_id": cid})
+        bid = get_bidding_analysis.invoke({"campaign_id": cid})
+        pacing = get_budget_pacing.invoke({"campaign_id": cid})
+
+        # Severity = max of any flag
+        flags = [health.get("status_flag"), bid.get("roas_flag"), pacing.get("pacing_flag")]
+        if "Critical" in flags or "Below Target" in flags or "Over-pacing" in flags:
+            severity = "critical"
+        elif "Declining" in flags or "Under-pacing" in flags:
+            severity = "warning"
+        else:
+            severity = "info"
+
+        # Estimated daily INR impact: if pacing or ROAS is broken, today's wasted spend
+        spend = float(r["spend_so_far"] or 0)
+        roas = float(r["roas"] or 0)
+        target_roas = float(r["target_roas"] or 1)
+        if roas < target_roas:
+            shortfall_pct = max(0, 1 - (roas / target_roas))
+            impact = round(spend * shortfall_pct)
+        else:
+            impact = 0
+
+        # Specialists that contributed
+        contributing = ["CampaignAgent"]
+        if health.get("status_flag") in ("Critical", "Declining"):
+            contributing.append("AudienceAgent")
+        contributing.append("BiddingAgent")
+        if pacing.get("pacing_flag") in ("Over-pacing", "Under-pacing"):
+            contributing.append("BudgetAgent")
+
+        cards.append({
+            "rank": rank,
+            "severity": severity,
+            "campaign_id": cid,
+            "campaign_name": r["campaign_name"],
+            "campaign_type": r["campaign_type"],
+            "channel": r["channel"],
+            "headline": (
+                f"{health.get('status_flag', 'Unknown')} health · "
+                f"{bid.get('roas_flag', 'Unknown')} ROAS · "
+                f"{pacing.get('pacing_flag', 'Unknown')}"
+            ),
+            "metrics": [
+                {"label": "CTR",       "value": f"{health.get('ctr', 0):.2f}%",   "flag": "critical" if health.get("ctr", 0) < 0.8 else "ok"},
+                {"label": "Frequency", "value": f"{health.get('frequency', 0):.1f}", "flag": "critical" if health.get("frequency", 0) > 5 else "ok"},
+                {"label": "ROAS",      "value": f"{bid.get('roas', 0):.2f}× / target {bid.get('target_roas', 0):.1f}×", "flag": "critical" if bid.get("roas_flag") == "Below Target" else "ok"},
+                {"label": "Pacing",    "value": f"{pacing.get('pacing_pct', 0):.0f}%", "flag": "warning" if pacing.get("pacing_flag") != "On Track" else "ok"},
+            ],
+            "specialists": list(dict.fromkeys(contributing)),
+            "recommended_action": health.get("message") or bid.get("suggested_bid_action") or "Review campaign manually.",
+            "estimated_impact_inr": impact,
+            "drill_in_query": f"Why is {cid} ({r['campaign_name']}) underperforming and what should we do about it?",
+        })
+    return cards
+
+
 def daily_briefing() -> Dict[str, Any]:
     """
     Orchestrate ALL FOUR specialists to produce ONE coherent Daily Briefing.
@@ -236,6 +317,7 @@ def daily_briefing() -> Dict[str, Any]:
         "answer": answer,
         "specialists_consulted": [o["agent"] for o in outputs],
         "specialist_outputs": outputs,
+        "issue_cards": _build_issue_cards(),
         "context": {
             "flagged_campaigns": flagged,
             "account_summary": account_summary(),
