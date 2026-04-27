@@ -58,11 +58,33 @@ class _DataStore:
         return "Unknown"
 
 
+def _empty_store() -> _DataStore:
+    """Empty fallback used when no demo CSVs exist on disk and no upload yet.
+    Columns are hardcoded (not pulled from REQUIRED_*_COLS) because this
+    function may run at import time, BEFORE those constants are defined."""
+    campaign_cols = [
+        "campaign_id", "campaign_name", "channel", "objective", "daily_budget",
+        "spend_so_far", "impressions", "clicks", "ctr", "cpc", "roas",
+        "target_roas", "frequency", "bid_strategy", "start_date", "status",
+        "campaign_type",
+    ]
+    adset_cols = [
+        "ad_set_id", "campaign_id", "ad_set_name", "audience_size", "reach",
+        "frequency", "ad_set_spend", "ad_set_roas", "ctr", "top_creative_id",
+        "audience_overlap_pct",
+    ]
+    return _DataStore(
+        campaigns=pd.DataFrame(columns=campaign_cols),
+        adsets=pd.DataFrame(columns=adset_cols),
+    )
+
+
 def _load() -> _DataStore:
-    if not os.path.exists(CAMPAIGNS_CSV):
-        raise FileNotFoundError(f"Missing CSV: {CAMPAIGNS_CSV}")
-    if not os.path.exists(ADSETS_CSV):
-        raise FileNotFoundError(f"Missing CSV: {ADSETS_CSV}")
+    # If the demo CSVs aren't present, return an empty store so the app still
+    # boots — every endpoint will simply return zero rows until the user
+    # uploads data via the (optional) upload modal.
+    if not os.path.exists(CAMPAIGNS_CSV) or not os.path.exists(ADSETS_CSV):
+        return _empty_store()
 
     campaigns = pd.read_csv(CAMPAIGNS_CSV)
     adsets = pd.read_csv(ADSETS_CSV)

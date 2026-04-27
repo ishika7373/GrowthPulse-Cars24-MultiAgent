@@ -20,7 +20,7 @@
       <a href="#how">Architecture</a>
       <a href="#agents">Agents</a>
       <a href="#funnel">Funnel</a>
-      <button class="nav-pill data-pill" id="data-source-pill" title="Click to upload your own data" onclick="GP.openUpload()">Data: …</button>
+      <button class="nav-pill data-pill" id="data-source-pill" title="Optional — upload your own campaigns CSV instead of the demo data" onclick="GP.openUpload()">…</button>
       <span class="nav-pill" id="llm-mode-pill">LLM: …</span>
     </div>
   </nav>
@@ -224,29 +224,73 @@
   <div class="modal-backdrop" id="upload-modal" hidden>
     <div class="modal">
       <header class="modal-hd">
-        <h3>Upload your own campaign data</h3>
+        <h3>Optional — upload your own campaign data</h3>
         <button class="icon-btn" onclick="GP.closeUpload()">✕</button>
       </header>
       <div class="modal-body">
         <p class="modal-lede">
-          Upload two CSVs that match the Cars24 schema. The system will validate the columns,
-          replace the active dataset, and re-run the Daily Briefing on your data.
+          GrowthPulse already works on the bundled Cars24 demo dataset — you don't need to upload
+          anything to start chatting. Use this only if you want the agents to analyse <em>your</em>
+          campaigns instead. We'll validate the columns and re-run the Daily Briefing on the new data.
         </p>
 
         <div class="upload-row">
-          <label class="upload-zone" for="up-campaigns">
+          <label class="upload-zone" for="up-campaigns" id="zone-campaigns">
+            <div class="upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
             <span class="upload-title">campaigns.csv</span>
-            <span class="upload-sub">Required columns: campaign_id, campaign_name, channel, daily_budget, spend_so_far, ctr, roas, target_roas, frequency, status…</span>
+            <span class="upload-sub">Click or drag your campaigns CSV here</span>
+            <div class="upload-cols">
+              <span class="col-chip">campaign_id</span>
+              <span class="col-chip">channel</span>
+              <span class="col-chip">daily_budget</span>
+              <span class="col-chip">spend_so_far</span>
+              <span class="col-chip">ctr</span>
+              <span class="col-chip">roas</span>
+              <span class="col-chip">target_roas</span>
+              <span class="col-chip">frequency</span>
+              <span class="col-chip">+ 8 more</span>
+            </div>
             <span class="upload-file" id="up-campaigns-name">No file chosen</span>
             <input type="file" id="up-campaigns" accept=".csv" hidden>
           </label>
-          <label class="upload-zone" for="up-adsets">
+          <label class="upload-zone" for="up-adsets" id="zone-adsets">
+            <div class="upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
             <span class="upload-title">adsets.csv</span>
-            <span class="upload-sub">Required columns: ad_set_id, campaign_id, ad_set_name, audience_size, reach, frequency, ad_set_spend, ad_set_roas, ctr, audience_overlap_pct…</span>
+            <span class="upload-sub">Click or drag your ad-sets CSV here</span>
+            <div class="upload-cols">
+              <span class="col-chip">ad_set_id</span>
+              <span class="col-chip">campaign_id</span>
+              <span class="col-chip">audience_size</span>
+              <span class="col-chip">reach</span>
+              <span class="col-chip">frequency</span>
+              <span class="col-chip">ad_set_spend</span>
+              <span class="col-chip">ad_set_roas</span>
+              <span class="col-chip">audience_overlap_pct</span>
+              <span class="col-chip">+ 3 more</span>
+            </div>
             <span class="upload-file" id="up-adsets-name">No file chosen</span>
             <input type="file" id="up-adsets" accept=".csv" hidden>
           </label>
         </div>
+
+        <p class="modal-helper">
+          New here?
+          <a href="/api/sample/campaigns.csv" download>Download sample campaigns.csv</a>
+          ·
+          <a href="/api/sample/adsets.csv" download>Download sample adsets.csv</a>
+        </p>
 
         <div class="upload-status" id="upload-status"></div>
 

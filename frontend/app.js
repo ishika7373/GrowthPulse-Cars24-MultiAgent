@@ -199,9 +199,19 @@
     briefingShown = true;
     const dash = $("#briefing-dash");
     if (dash) dash.hidden = false;
-    paintBriefingLoading();
+
+    // If the new dashboard section is present, show its loading state.
+    // Otherwise (old HTML cached) drop a placeholder chat bubble.
+    let placeholder = null;
+    if (_hasBriefingDash()) {
+      paintBriefingLoading();
+    } else {
+      placeholder = appendBot('<span class="typing"><span></span><span></span><span></span></span> Generating Daily Campaign Briefing…');
+    }
+
     try {
       const res = await kickoffBriefing();
+      if (placeholder) placeholder.remove();
       paintBriefingDashboard(res);
       paintTrace({
         route: "DAILY_BRIEFING",
@@ -209,7 +219,8 @@
         tool_calls: (res.specialist_outputs || []).map(o => ({ specialist: o.agent, tool_calls: o.tool_calls || [] })),
       });
     } catch (e) {
-      paintBriefingError(e);
+      if (placeholder) placeholder.innerHTML = "❌ Could not load briefing: " + escapeHtml(e.message || String(e));
+      else paintBriefingError(e);
     }
   }
 
@@ -217,28 +228,40 @@
     briefingPromise = null;          // bust cache
     briefingShown = false;
     const dash = $("#briefing-dash"); if (dash) dash.hidden = false;
-    paintBriefingLoading();
+    if (_hasBriefingDash()) paintBriefingLoading();
     try {
       const res = await kickoffBriefing();
       paintBriefingDashboard(res);
-      // Also re-paint hero card
       paintHeroBriefing(res);
     } catch (e) {
       paintBriefingError(e);
     }
   }
 
+  // Helper: gracefully fall back to chat-bubble briefing when the dashboard
+  // section isn't on the page (older cached index.html).
+  function _hasBriefingDash() { return !!$("#briefing-cards"); }
+
   function paintBriefingLoading() {
-    $("#briefing-cards").innerHTML = `
+    const cards = $("#briefing-cards");
+    const meta = $("#briefing-meta");
+    if (!cards) return;
+    cards.innerHTML = `
       <div class="bcard">
         <div class="bcard-title">Supervisor is orchestrating all 4 specialists…</div>
         <div class="bcard-action"><small>This takes ~10-30 seconds with real OpenAI.</small></div>
       </div>`;
-    $("#briefing-meta").textContent = "Supervisor · running…";
+    if (meta) meta.textContent = "Supervisor · running…";
   }
 
   function paintBriefingError(err) {
-    $("#briefing-cards").innerHTML = `
+    const cards = $("#briefing-cards");
+    if (!cards) {
+      // Fallback: show the error in the chat body so the user sees it
+      appendBot(`<strong style="color:var(--bad);">Briefing failed:</strong> ${escapeHtml(err.message || String(err))}`);
+      return;
+    }
+    cards.innerHTML = `
       <div class="bcard severity-critical">
         <div class="bcard-title">Briefing failed</div>
         <div class="bcard-action">${escapeHtml(err.message || String(err))}</div>
@@ -247,18 +270,28 @@
 
   function paintBriefingDashboard(res) {
     const specialists = res.specialists_consulted || [];
-    $("#briefing-meta").textContent = `Supervisor · synthesised from ${specialists.length} specialist${specialists.length === 1 ? "" : "s"}`;
+    const cardsEl = $("#briefing-cards");
+    const meta = $("#briefing-meta");
+    const synth = $("#briefing-synth-body");
+
+    // Fallback path if the new HTML isn't deployed yet (cached index.html).
+    if (!cardsEl) {
+      const html = specialistsHtml(specialists, "Supervisor") + formatAnswer(res.answer);
+      appendBot(html);
+      return;
+    }
+
+    if (meta) meta.textContent = `Supervisor · synthesised from ${specialists.length} specialist${specialists.length === 1 ? "" : "s"}`;
 
     const cards = res.issue_cards || [];
     if (!cards.length) {
-      $("#briefing-cards").innerHTML = `
+      cardsEl.innerHTML = `
         <div class="bcard severity-info">
           <div class="bcard-title">No critical issues right now ✓</div>
           <div class="bcard-action">All campaigns are inside healthy CTR / ROAS / pacing bands.</div>
         </div>`;
     } else {
-      $("#briefing-cards").innerHTML = cards.map(renderCard).join("");
-      // Wire drill-in buttons
+      cardsEl.innerHTML = cards.map(renderCard).join("");
       Array.from(document.querySelectorAll(".bcard-drill")).forEach(btn => {
         btn.addEventListener("click", () => {
           const q = btn.dataset.q;
@@ -270,8 +303,7 @@
       });
     }
 
-    // Synthesis prose collapsible below
-    $("#briefing-synth-body").innerHTML = formatAnswer(res.answer);
+    if (synth) synth.innerHTML = formatAnswer(res.answer);
   }
 
   function renderCard(c) {
@@ -415,30 +447,95 @@
     if (!src) return;
     const pill = $("#data-source-pill");
     if (!pill) return;
-    const label = src.type === "uploaded" ? `Data: ${src.campaigns_filename}` : "Data: demo";
-    pill.textContent = label;
-    pill.classList.toggle("uploaded", src.type === "uploaded");
+    if (src.type === "uploaded") {
+      pill.textContent = `Using: ${src.campaigns_filename}`;
+      pill.title = "Click to upload a different file or reset to demo data";
+      pill.classList.add("uploaded");
+    } else {
+      pill.textContent = "Demo mode · upload optional";
+      pill.title = "GrowthPulse works fully on the demo data. Click to upload your own campaigns instead.";
+      pill.classList.remove("uploaded");
+    }
   }
 
   function openUpload() {
-    $("#upload-modal").hidden = false;
-    $("#up-campaigns-name").textContent = "No file chosen";
-    $("#up-adsets-name").textContent = "No file chosen";
-    $("#upload-status").textContent = "";
-    $("#upload-status").className = "upload-status";
-    $("#btn-upload").disabled = true;
-    document.querySelector("label[for=up-campaigns]").classList.remove("has-file");
-    document.querySelector("label[for=up-adsets]").classList.remove("has-file");
-    $("#up-campaigns").value = "";
-    $("#up-adsets").value = "";
+    const modal = $("#upload-modal");
+    if (!modal) return;
+    modal.hidden = false;
+    ["up-campaigns-name", "up-adsets-name"].forEach(id => {
+      const el = $("#" + id); if (el) el.textContent = "No file chosen";
+    });
+    const status = $("#upload-status");
+    if (status) { status.textContent = ""; status.className = "upload-status"; }
+    const btn = $("#btn-upload"); if (btn) btn.disabled = true;
+    ["zone-campaigns", "zone-adsets"].forEach(id => $("#" + id)?.classList.remove("has-file", "dragover"));
+    const c = $("#up-campaigns"); if (c) c.value = "";
+    const a = $("#up-adsets"); if (a) a.value = "";
   }
 
   function closeUpload() { $("#upload-modal").hidden = true; }
 
   function maybeEnableUpload() {
-    const c = $("#up-campaigns").files[0];
-    const a = $("#up-adsets").files[0];
-    $("#btn-upload").disabled = !(c && a);
+    const c = $("#up-campaigns")?.files[0];
+    const a = $("#up-adsets")?.files[0];
+    const btn = $("#btn-upload");
+    if (btn) btn.disabled = !(c && a);
+  }
+
+  function fileSizeLabel(n) {
+    if (!n) return "";
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1024 / 1024).toFixed(2) + " MB";
+  }
+
+  // Quick line-count of a CSV (excluding header) — gives the user immediate
+  // confirmation of how many rows we're about to ingest.
+  async function countCsvRows(file) {
+    try {
+      const txt = await file.text();
+      const lines = txt.split(/\r?\n/).filter(l => l.trim().length > 0);
+      return Math.max(0, lines.length - 1);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function showFileMeta(inputId, labelId, zoneId) {
+    const f = $("#" + inputId)?.files[0];
+    const lbl = $("#" + labelId);
+    const zone = $("#" + zoneId);
+    if (!lbl) return;
+    if (!f) {
+      lbl.innerHTML = "No file chosen";
+      zone?.classList.remove("has-file");
+      return;
+    }
+    zone?.classList.add("has-file");
+    const rows = await countCsvRows(f);
+    const meta = `${fileSizeLabel(f.size)}${rows != null ? ` · ${rows} rows` : ""}`;
+    lbl.innerHTML = `${escapeHtml(f.name)}<small>${escapeHtml(meta)}</small>`;
+  }
+
+  function setupDragDrop(zoneId, inputId) {
+    const zone = $("#" + zoneId);
+    const input = $("#" + inputId);
+    if (!zone || !input) return;
+    ["dragenter", "dragover"].forEach(evt =>
+      zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); zone.classList.add("dragover"); })
+    );
+    ["dragleave", "drop"].forEach(evt =>
+      zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove("dragover"); })
+    );
+    zone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files?.[0];
+      if (!file) return;
+      // Programmatically set the input's FileList using DataTransfer
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   }
 
   async function doUpload() {
@@ -497,9 +594,20 @@
     }
   }
 
+  // Tiny helpers so missing DOM nodes never break wire().
+  // (e.g. if browser is showing a cached older index.html.)
+  function on(sel, handler) {
+    const el = $(sel);
+    if (el) el.onclick = handler;
+  }
+  function bind(sel, evt, handler) {
+    const el = $(sel);
+    if (el) el.addEventListener(evt, handler);
+  }
+
   function wire() {
-    $("#close-chat").onclick = closeChat;
-    $("#chat-form").addEventListener("submit", (e) => {
+    on("#close-chat", closeChat);
+    bind("#chat-form", "submit", (e) => {
       e.preventDefault();
       sendQuery($("#chat-input").value);
     });
@@ -507,32 +615,28 @@
       $("#chat-input").value = b.dataset.q;
       sendQuery(b.dataset.q);
     });
-    $("#trace-toggle").onclick = () => $("#trace-panel").classList.toggle("collapsed");
-    $("#clear-chat").onclick = async () => {
+    on("#trace-toggle", () => $("#trace-panel")?.classList.toggle("collapsed"));
+    on("#clear-chat", async () => {
       $("#chat-body").innerHTML = "";
       briefingShown = false;
       try { await apiPOST("/api/reset", { session_id: SESSION_ID }); } catch (_) {}
       maybeShowBriefing();
-    };
-    $("#briefing-refresh").onclick = refreshBriefing;
+    });
+    on("#briefing-refresh", refreshBriefing);
 
-    // Upload modal wiring
-    const cInp = $("#up-campaigns");
-    const aInp = $("#up-adsets");
-    cInp.addEventListener("change", () => {
-      const f = cInp.files[0];
-      $("#up-campaigns-name").textContent = f ? f.name : "No file chosen";
-      document.querySelector("label[for=up-campaigns]").classList.toggle("has-file", !!f);
+    // Upload modal wiring — every lookup is null-safe in case the modal HTML
+    // isn't deployed yet (e.g. browser cached the older index.html).
+    bind("#up-campaigns", "change", async () => {
+      await showFileMeta("up-campaigns", "up-campaigns-name", "zone-campaigns");
       maybeEnableUpload();
     });
-    aInp.addEventListener("change", () => {
-      const f = aInp.files[0];
-      $("#up-adsets-name").textContent = f ? f.name : "No file chosen";
-      document.querySelector("label[for=up-adsets]").classList.toggle("has-file", !!f);
+    bind("#up-adsets", "change", async () => {
+      await showFileMeta("up-adsets", "up-adsets-name", "zone-adsets");
       maybeEnableUpload();
     });
-    // Click backdrop to close
-    $("#upload-modal").addEventListener("click", (e) => {
+    setupDragDrop("zone-campaigns", "up-campaigns");
+    setupDragDrop("zone-adsets", "up-adsets");
+    bind("#upload-modal", "click", (e) => {
       if (e.target.id === "upload-modal") closeUpload();
     });
   }
