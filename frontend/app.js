@@ -105,7 +105,6 @@
         apiGET("/api/campaigns"),
       ]);
       $("#llm-mode-pill").textContent = "LLM: " + (health.llm === "openai" ? "OpenAI gpt-4o-mini" : "Mock (offline)");
-      paintDataSource(health.data_source);
       paintAccountSummary(summary);
       paintFunnel(summary);
       funnelData = { summary, campaigns };
@@ -442,160 +441,7 @@
     $("#chat-panel").setAttribute("aria-hidden", "true");
   }
 
-  // ------- Data source / upload -------
-  function paintDataSource(src) {
-    if (!src) return;
-    const pill = $("#data-source-pill");
-    if (!pill) return;
-    if (src.type === "uploaded") {
-      pill.textContent = `Using: ${src.campaigns_filename}`;
-      pill.title = "Click to upload a different file or reset to demo data";
-      pill.classList.add("uploaded");
-    } else {
-      pill.textContent = "Demo mode · upload optional";
-      pill.title = "GrowthPulse works fully on the demo data. Click to upload your own campaigns instead.";
-      pill.classList.remove("uploaded");
-    }
-  }
-
-  function openUpload() {
-    const modal = $("#upload-modal");
-    if (!modal) return;
-    modal.hidden = false;
-    ["up-campaigns-name", "up-adsets-name"].forEach(id => {
-      const el = $("#" + id); if (el) el.textContent = "No file chosen";
-    });
-    const status = $("#upload-status");
-    if (status) { status.textContent = ""; status.className = "upload-status"; }
-    const btn = $("#btn-upload"); if (btn) btn.disabled = true;
-    ["zone-campaigns", "zone-adsets"].forEach(id => $("#" + id)?.classList.remove("has-file", "dragover"));
-    const c = $("#up-campaigns"); if (c) c.value = "";
-    const a = $("#up-adsets"); if (a) a.value = "";
-  }
-
-  function closeUpload() { $("#upload-modal").hidden = true; }
-
-  function maybeEnableUpload() {
-    const c = $("#up-campaigns")?.files[0];
-    const a = $("#up-adsets")?.files[0];
-    const btn = $("#btn-upload");
-    if (btn) btn.disabled = !(c && a);
-  }
-
-  function fileSizeLabel(n) {
-    if (!n) return "";
-    if (n < 1024) return n + " B";
-    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
-    return (n / 1024 / 1024).toFixed(2) + " MB";
-  }
-
-  // Quick line-count of a CSV (excluding header) — gives the user immediate
-  // confirmation of how many rows we're about to ingest.
-  async function countCsvRows(file) {
-    try {
-      const txt = await file.text();
-      const lines = txt.split(/\r?\n/).filter(l => l.trim().length > 0);
-      return Math.max(0, lines.length - 1);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  async function showFileMeta(inputId, labelId, zoneId) {
-    const f = $("#" + inputId)?.files[0];
-    const lbl = $("#" + labelId);
-    const zone = $("#" + zoneId);
-    if (!lbl) return;
-    if (!f) {
-      lbl.innerHTML = "No file chosen";
-      zone?.classList.remove("has-file");
-      return;
-    }
-    zone?.classList.add("has-file");
-    const rows = await countCsvRows(f);
-    const meta = `${fileSizeLabel(f.size)}${rows != null ? ` · ${rows} rows` : ""}`;
-    lbl.innerHTML = `${escapeHtml(f.name)}<small>${escapeHtml(meta)}</small>`;
-  }
-
-  function setupDragDrop(zoneId, inputId) {
-    const zone = $("#" + zoneId);
-    const input = $("#" + inputId);
-    if (!zone || !input) return;
-    ["dragenter", "dragover"].forEach(evt =>
-      zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); zone.classList.add("dragover"); })
-    );
-    ["dragleave", "drop"].forEach(evt =>
-      zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove("dragover"); })
-    );
-    zone.addEventListener("drop", (e) => {
-      const file = e.dataTransfer.files?.[0];
-      if (!file) return;
-      // Programmatically set the input's FileList using DataTransfer
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-  }
-
-  async function doUpload() {
-    const c = $("#up-campaigns").files[0];
-    const a = $("#up-adsets").files[0];
-    if (!c || !a) return;
-    const fd = new FormData();
-    fd.append("campaigns", c);
-    fd.append("adsets", a);
-    const status = $("#upload-status");
-    status.textContent = "Uploading + validating…";
-    status.className = "upload-status";
-    $("#btn-upload").disabled = true;
-    try {
-      const res = await fetch("/api/upload-data", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        status.textContent = "❌ " + (data.errors ? data.errors.join("; ") : "Upload failed");
-        status.className = "upload-status error";
-        $("#btn-upload").disabled = false;
-        return;
-      }
-      status.textContent = `✅ Loaded ${data.campaigns_rows} campaigns + ${data.adsets_rows} ad sets. Refreshing…`;
-      status.className = "upload-status success";
-      paintDataSource(data.data_source);
-      // Refresh KPIs + briefing + funnel
-      const summary = await apiGET("/api/account-summary");
-      paintAccountSummary(summary);
-      paintFunnel(summary);
-      await refreshBriefing();
-      setTimeout(() => closeUpload(), 900);
-    } catch (e) {
-      status.textContent = "❌ " + e.message;
-      status.className = "upload-status error";
-      $("#btn-upload").disabled = false;
-    }
-  }
-
-  async function resetData() {
-    const status = $("#upload-status");
-    status.textContent = "Resetting to demo data…";
-    status.className = "upload-status";
-    try {
-      const res = await apiPOST("/api/reset-data", {});
-      paintDataSource(res.data_source);
-      const summary = await apiGET("/api/account-summary");
-      paintAccountSummary(summary);
-      paintFunnel(summary);
-      await refreshBriefing();
-      status.textContent = "✅ Demo dataset restored.";
-      status.className = "upload-status success";
-      setTimeout(() => closeUpload(), 900);
-    } catch (e) {
-      status.textContent = "❌ " + e.message;
-      status.className = "upload-status error";
-    }
-  }
-
   // Tiny helpers so missing DOM nodes never break wire().
-  // (e.g. if browser is showing a cached older index.html.)
   function on(sel, handler) {
     const el = $(sel);
     if (el) el.onclick = handler;
@@ -623,26 +469,10 @@
       maybeShowBriefing();
     });
     on("#briefing-refresh", refreshBriefing);
-
-    // Upload modal wiring — every lookup is null-safe in case the modal HTML
-    // isn't deployed yet (e.g. browser cached the older index.html).
-    bind("#up-campaigns", "change", async () => {
-      await showFileMeta("up-campaigns", "up-campaigns-name", "zone-campaigns");
-      maybeEnableUpload();
-    });
-    bind("#up-adsets", "change", async () => {
-      await showFileMeta("up-adsets", "up-adsets-name", "zone-adsets");
-      maybeEnableUpload();
-    });
-    setupDragDrop("zone-campaigns", "up-campaigns");
-    setupDragDrop("zone-adsets", "up-adsets");
-    bind("#upload-modal", "click", (e) => {
-      if (e.target.id === "upload-modal") closeUpload();
-    });
   }
 
   // ------- Public API for inline onclicks -------
-  window.GP = { openChat, closeChat, openUpload, closeUpload, doUpload, resetData };
+  window.GP = { openChat, closeChat };
 
   document.addEventListener("DOMContentLoaded", () => {
     wire();

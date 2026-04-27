@@ -397,28 +397,6 @@ em { font-style: normal; color: var(--accent); }
 }
 .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ---------- DATA-SOURCE PILL ----------
-   Subtle by default — the upload feature is OPTIONAL. The pill only
-   becomes a brand-colour strong call-out after a successful upload,
-   so first-time visitors aren't pushed toward an action they don't need. */
-.nav-pill.data-pill {
-  cursor: pointer;
-  color: var(--muted);
-  background: transparent;
-  border-color: var(--line);
-  font-weight: 500;
-}
-.nav-pill.data-pill:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-}
-.nav-pill.data-pill.uploaded {
-  background: rgba(124,92,255,0.18);
-  border-color: rgba(124,92,255,0.5);
-  color: var(--supervisor);
-  font-weight: 600;
-}
-
 /* ---------- BRIEFING DASHBOARD (cards inside chat panel) ---------- */
 .briefing-dash {
   border-bottom: 1px solid var(--line);
@@ -518,92 +496,6 @@ em { font-style: normal; color: var(--accent); }
 .briefing-synth summary::before { content: "▸ "; }
 .briefing-synth[open] summary::before { content: "▾ "; }
 .briefing-synth-body { padding-top: 8px; font-size: 13px; }
-
-/* ---------- UPLOAD MODAL ---------- */
-.modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
-  z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px;
-}
-.modal {
-  width: min(640px, 100%); max-height: 90vh; overflow: auto;
-  background: var(--bg-2); border: 1px solid var(--line);
-  border-radius: 16px; box-shadow: var(--shadow);
-}
-.modal-hd { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
-.modal-hd h3 { margin: 0; font-size: 18px; }
-.modal-body { padding: 20px; }
-.modal-lede { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
-
-.upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
-.upload-zone {
-  display: flex; flex-direction: column; gap: 6px;
-  background: rgba(255,255,255,0.03);
-  border: 1.5px dashed var(--line);
-  border-radius: 12px; padding: 16px;
-  cursor: pointer; transition: 0.15s;
-  position: relative;
-}
-.upload-zone:hover { border-color: var(--accent); background: rgba(110,231,255,0.04); }
-.upload-zone.dragover {
-  border-color: var(--accent);
-  border-style: solid;
-  background: rgba(110,231,255,0.10);
-  transform: scale(1.01);
-}
-.upload-zone.has-file { border-color: var(--good); border-style: solid; background: rgba(52,211,153,0.06); }
-.upload-icon {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(110,231,255,0.10);
-  color: var(--accent);
-  margin-bottom: 6px;
-}
-.upload-zone.has-file .upload-icon {
-  background: rgba(52,211,153,0.14);
-  color: var(--good);
-}
-.upload-title { font-weight: 700; font-size: 14px; }
-.upload-sub { color: var(--muted); font-size: 12px; line-height: 1.4; }
-.upload-cols { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
-.col-chip {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  font-family: ui-monospace, SF Mono, Menlo, monospace;
-}
-.upload-zone.has-file .col-chip { display: none; }
-.upload-file {
-  color: var(--accent); font-size: 12px;
-  font-family: ui-monospace, monospace; word-break: break-all;
-  margin-top: auto;
-}
-.upload-zone.has-file .upload-file { color: var(--good); }
-.upload-file small { color: var(--muted); display: block; font-family: 'Inter', sans-serif; margin-top: 2px; }
-.modal-helper {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 4px 0 12px;
-}
-.modal-helper a {
-  color: var(--accent);
-  border-bottom: 1px dashed rgba(110,231,255,0.4);
-}
-.modal-helper a:hover { color: var(--text); }
-
-.upload-status {
-  min-height: 22px; font-size: 13px; padding: 6px 0;
-}
-.upload-status.error { color: var(--bad); }
-.upload-status.success { color: var(--good); }
-
-.upload-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
-
-@media (max-width: 600px) {
-  .upload-row { grid-template-columns: 1fr; }
-}
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 920px) {
