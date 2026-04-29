@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GrowthPulse — Performance Marketing Intelligence</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- ============ NAV ============ -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <span class="logo-mark">GP</span>
+      <span class="logo-text">GrowthPulse</span>
+    </div>
+    <div class="nav-links">
+      <a href="#/dashboard" data-route="dashboard" class="nav-link">Dashboard</a>
+      <a href="#/agents"    data-route="agents"    class="nav-link">Agents &amp; architecture</a>
+      <span class="nav-pill" id="data-source-pill">Demo</span>
+      <span class="nav-pill" id="llm-mode-pill">LLM: …</span>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       PAGE 1 — DASHBOARD (business)
+       ============================================================ -->
+  <main class="view view-dashboard" id="view-dashboard">
+    <!-- Hero -->
+    <header class="dash-hero">
+      <div>
+        <span class="kicker">PERFORMANCE MARKETING · DUAL FUNNEL</span>
+        <h1>Stop spending 2 hours every morning hunting for what broke.</h1>
+        <p class="lede">
+          Plug in your Google Ads or Meta Ads export, and GrowthPulse instantly surfaces
+          critical campaigns, wasted spend, audience saturation and bid issues — backed by
+          a five-agent AI system that talks back in plain English.
+        </p>
+        <div class="hero-cta">
+          <button class="btn-primary" onclick="GP.scrollToUpload()">Analyse my ads →</button>
+          <a class="btn-ghost" href="#/agents">See how the agents work</a>
+        </div>
+      </div>
+      <div class="dash-hero-quote">
+        <small>HEAD OF PERFORMANCE MARKETING</small>
+        <blockquote>"GrowthPulse turns 2 hours of dashboarding into a 10-second briefing — and tells me exactly which lever to pull."</blockquote>
+      </div>
+    </header>
+
+    <!-- KPI strip -->
+    <section class="kpi-strip">
+      <div class="kpi"><span class="kpi-v" id="stat-campaigns">…</span><span class="kpi-l">Active campaigns</span></div>
+      <div class="kpi"><span class="kpi-v kpi-bad" id="stat-critical">…</span><span class="kpi-l">Critical status</span></div>
+      <div class="kpi"><span class="kpi-v" id="stat-spend">…</span><span class="kpi-l">Spend / Budget</span></div>
+      <div class="kpi"><span class="kpi-v" id="stat-cpl">…</span><span class="kpi-l">Seller blended CPL</span></div>
+      <div class="kpi"><span class="kpi-v" id="stat-roas">…</span><span class="kpi-l">Buyer blended ROAS</span></div>
+    </section>
+
+    <!-- Charts -->
+    <section class="charts">
+      <article class="chart-card">
+        <header>
+          <h3>Spend vs Revenue</h3>
+          <small>Last 14 days · daily snapshot</small>
+        </header>
+        <div class="chart-wrap"><canvas id="chart-spend-revenue"></canvas></div>
+      </article>
+      <article class="chart-card">
+        <header>
+          <h3>Channel mix</h3>
+          <small>Spend share across platforms</small>
+        </header>
+        <div class="chart-wrap chart-donut"><canvas id="chart-channel-mix"></canvas></div>
+      </article>
+    </section>
+
+    <!-- Top campaigns table -->
+    <section class="table-card">
+      <header>
+        <h3>Top campaigns by spend</h3>
+        <small>Click a row to drill in via the agents</small>
+      </header>
+      <div class="table-scroll">
+        <table class="dash-table" id="top-campaigns-table">
+          <thead>
+            <tr>
+              <th>Campaign</th>
+              <th>Channel</th>
+              <th>Type</th>
+              <th class="num">Spend</th>
+              <th class="num">CTR</th>
+              <th class="num">ROAS</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Ads upload -->
+    <section class="upload-card" id="upload-section">
+      <header>
+        <h3>Analyse your own ads data</h3>
+        <small>Drop a Google Ads or Meta Ads CSV/XLSX — GrowthPulse auto-detects the platform.</small>
+      </header>
+      <div class="upload-row">
+        <label class="upload-zone" for="up-campaigns" id="zone-campaigns">
+          <div class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <strong>Campaigns export</strong>
+          <span class="upload-sub">Click or drag a Google Ads / Meta Ads campaigns file (CSV or XLSX)</span>
+          <span class="upload-file" id="up-campaigns-name">No file chosen</span>
+          <input type="file" id="up-campaigns" accept=".csv,.xlsx,.xls" hidden>
+        </label>
+        <label class="upload-zone" for="up-adsets" id="zone-adsets">
+          <div class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <strong>Ad sets export <em>(optional)</em></strong>
+          <span class="upload-sub">If you have ad-set / ad-group level data, drop it here too. Otherwise we'll synthesise.</span>
+          <span class="upload-file" id="up-adsets-name">No file chosen</span>
+          <input type="file" id="up-adsets" accept=".csv,.xlsx,.xls" hidden>
+        </label>
+      </div>
+      <div class="upload-status" id="upload-status"></div>
+      <div class="upload-actions">
+        <button class="btn-ghost" id="btn-reset-demo">Use demo data instead</button>
+        <button class="btn-primary" id="btn-upload" disabled>Analyse my ads →</button>
+      </div>
+    </section>
+
+    <p class="dash-footer-cta">
+      Want the conversational analysis layer?
+      <a href="#/agents">Open the multi-agent chat →</a>
+    </p>
+  </main>
+
+  <!-- ============================================================
+       PAGE 2 — AGENTS & ARCHITECTURE (tech)
+       ============================================================ -->
+  <main class="view view-agents" id="view-agents" hidden>
+    <!-- Hero -->
+    <header class="agents-hero">
+      <div>
+        <span class="kicker">FIVE LLM AGENTS · ROUTER · SPECIALISTS · SUPERVISOR</span>
+        <h1>How GrowthPulse decides <em>what</em> to fix and <em>why</em>.</h1>
+        <p class="lede">
+          Each query enters a Router classifier, dispatches to one of four scoped specialists
+          (Campaign · Audience · Bidding · Budget), and a Supervisor synthesises cross-domain
+          questions into a single, prioritised action plan — citing every claim back to the
+          specialist that surfaced it.
+        </p>
+        <div class="hero-cta">
+          <button class="btn-primary" onclick="GP.openChat()">Chat with the agents →</button>
+          <a class="btn-ghost" href="#/dashboard">← Back to dashboard</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Architecture -->
+    <section class="section">
+      <h2>Architecture</h2>
+      <div class="arch">
+        <div class="arch-row"><div class="arch-node user">User Query</div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-row"><div class="arch-node router">Router Agent <small>LLM classifier · 6 routes</small></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-row specialists">
+          <div class="arch-node spec spec-campaign">CampaignAgent <small>2 tools</small></div>
+          <div class="arch-node spec spec-audience">AudienceAgent <small>2 tools</small></div>
+          <div class="arch-node spec spec-bidding">BiddingAgent <small>2 tools</small></div>
+          <div class="arch-node spec spec-budget">BudgetAgent <small>2 tools</small></div>
+        </div>
+        <div class="arch-arrow">↓ <span class="muted">(MULTI route + Daily Briefing)</span></div>
+        <div class="arch-row"><div class="arch-node supervisor">Supervisor / Synthesis Agent <small>no tools</small></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-row"><div class="arch-node final">Final Answer · Prioritised Action Plan</div></div>
+      </div>
+    </section>
+
+    <!-- Agent cards -->
+    <section class="section alt">
+      <h2>Five LLM-powered agents, eight scoped tools</h2>
+      <div class="agent-grid">
+        <article class="agent-card campaign">
+          <h3>CampaignAgent</h3>
+          <p class="persona">Creative-and-performance analyst — speaks in CTR, frequency, fatigue.</p>
+          <ul>
+            <li><code>diagnose_campaign_health</code></li>
+            <li><code>get_creative_performance</code></li>
+          </ul>
+        </article>
+        <article class="agent-card audience">
+          <h3>AudienceAgent</h3>
+          <p class="persona">Audience strategist — reach %, overlap %, segment recommendations.</p>
+          <ul>
+            <li><code>get_audience_saturation</code></li>
+            <li><code>find_audience_overlap</code></li>
+          </ul>
+        </article>
+        <article class="agent-card bidding">
+          <h3>BiddingAgent</h3>
+          <p class="persona">Margin-and-efficiency steward — ROAS, CPA, bid caps, cost-per-result.</p>
+          <ul>
+            <li><code>get_bidding_analysis</code></li>
+            <li><code>recommend_bid_strategy</code></li>
+          </ul>
+        </article>
+        <article class="agent-card budget">
+          <h3>BudgetAgent</h3>
+          <p class="persona">Financial steward — pacing %, opportunity cost, reallocation impact.</p>
+          <ul>
+            <li><code>get_budget_pacing</code></li>
+            <li><code>get_budget_waste</code></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- Funnel -->
+    <section class="section">
+      <h2>Cars24 dual-funnel coverage (demo data)</h2>
+      <div class="funnel-grid" id="funnel-grid"></div>
+    </section>
+
+    <p class="dash-footer-cta">
+      Ready to see them work?
+      <button class="link-arrow" onclick="GP.openChat()">Open the chat →</button>
+    </p>
+  </main>
+
+  <footer class="footer">
+    <span>GrowthPulse · Multi-Agent Performance Marketing · Powered by Google Gemini</span>
+    <span>FastAPI · LangChain · ConversationBufferMemory</span>
+  </footer>
+
+  <!-- ============ FLOATING CHAT FAB (visible on Agents page only) ============ -->
+  <button id="chat-fab" class="chat-fab" onclick="GP.openChat()" aria-label="Open GrowthPulse chat" hidden>
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    </svg>
+    <span class="fab-pulse"></span>
+  </button>
+
+  <!-- ============ CHAT PANEL ============ -->
+  <aside id="chat-panel" class="chat-panel" aria-hidden="true">
+    <header class="chat-hd">
+      <div class="chat-title">
+        <span class="logo-mark sm">GP</span>
+        <div>
+          <strong>GrowthPulse</strong>
+          <small id="chat-route-pill">ready</small>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <select id="campaign-filter" title="Campaign type filter">
+          <option>All Campaigns</option>
+          <option>Seller Acquisition</option>
+          <option>Buyer Intent</option>
+          <option>Financing &amp; EMI</option>
+          <option>Retargeting</option>
+          <option>Brand Awareness</option>
+        </select>
+        <button class="icon-btn" id="trace-toggle" title="Agent Trace">⚙︎</button>
+        <button class="icon-btn" id="clear-chat" title="Clear chat">⟳</button>
+        <button class="icon-btn" id="close-chat" title="Close" onclick="GP.closeChat()">✕</button>
+      </div>
+    </header>
+
+    <div class="acct-strip">
+      <div><span id="acct-active">…</span><small>Active</small></div>
+      <div><span id="acct-critical">…</span><small>Critical</small></div>
+      <div><span id="acct-cpl">…</span><small>Seller CPL</small></div>
+      <div><span id="acct-roas">…</span><small>Buyer ROAS</small></div>
+      <div><span id="acct-spend">…</span><small>Spend / Budget</small></div>
+    </div>
+
+    <div class="trace-panel collapsed" id="trace-panel">
+      <div class="trace-hd">Agent Trace</div>
+      <div class="trace-body" id="trace-body">No query yet.</div>
+    </div>
+
+    <section class="briefing-dash" id="briefing-dash" hidden>
+      <div class="briefing-hd">
+        <div>
+          <strong>Daily Briefing</strong>
+          <small id="briefing-meta">Supervisor · 4 specialists</small>
+        </div>
+        <button class="icon-btn" id="briefing-refresh" title="Re-run briefing">↻</button>
+      </div>
+      <div class="briefing-cards" id="briefing-cards"></div>
+      <details class="briefing-synth" id="briefing-synth-wrap">
+        <summary>Read full Supervisor synthesis</summary>
+        <div class="briefing-synth-body" id="briefing-synth-body"></div>
+      </details>
+    </section>
+
+    <div class="chat-body" id="chat-body"></div>
+
+    <div class="quick-row" id="quick-row">
+      <button class="quick" data-q="Which campaigns have CTR below 0.8%?">Low CTR</button>
+      <button class="quick" data-q="Find audience overlap inside the highest-spend campaign">Audience overlap</button>
+      <button class="quick" data-q="Show me wasted spend across the account">Wasted spend</button>
+      <button class="quick" data-q="Why is the lowest-ROAS campaign underperforming?">Why underperforming?</button>
+    </div>
+
+    <form class="chat-input" id="chat-form" autocomplete="off">
+      <input id="chat-input" placeholder="Ask GrowthPulse anything about your campaigns…" />
+      <button class="btn-send" type="submit">Send</button>
+    </form>
+  </aside>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
